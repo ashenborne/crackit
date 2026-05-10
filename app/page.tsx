@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { auth, googleProvider } from './firebase'
 import { signInWithPopup, signOut } from 'firebase/auth'
 import CalendarPage from './CalendarPage'
+import ChapterTracker from './ChapterTracker'
 
 export default function Home() {
   const [screen, setScreen] = useState('loading')
@@ -11,6 +12,36 @@ export default function Home() {
   const [user, setUser] = useState<any>(null)
   const [error, setError] = useState('')
   const [page, setPage] = useState('dashboard')
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [userName, setUserName] = useState(() => {
+  if (typeof window !== 'undefined') return localStorage.getItem('crackit_name') || ''
+  return ''
+})
+const [nameInput, setNameInput] = useState('')
+  const [schedule, setSchedule] = useState<Record<string, any[]>>(() => {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('crackit_schedule')
+    return saved ? JSON.parse(saved) : {}
+  }
+  return {}
+})
+const [showAddTask, setShowAddTask] = useState(false)
+const [clock, setClock] = useState(new Date())
+const [streak, setStreak] = useState(() => {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('crackit_streak')
+    return saved ? JSON.parse(saved) : { count: 0, lastCompleted: '' }
+  }
+  return { count: 0, lastCompleted: '' }
+})
+const [scheduleDate, setScheduleDate] = useState(new Date().toISOString().split('T')[0])
+
+useEffect(() => {
+  const timer = setInterval(() => setClock(new Date()), 1000)
+  return () => clearInterval(timer)
+}, [])
+const [taskForm, setTaskForm] = useState({ time: '', title: '', subject: '', duration: '' })
+
 
 useEffect(() => {
   const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
@@ -18,11 +49,17 @@ useEffect(() => {
       setUser(firebaseUser)
       const savedExam = localStorage.getItem('crackit_exam')
       if (savedExam) {
-        setExam(savedExam)
-        setScreen('app')
-      } else {
-        setScreen('exam')
-      }
+  setExam(savedExam)
+  const savedName = localStorage.getItem('crackit_name')
+  if (savedName) {
+    setUserName(savedName)
+    setScreen('app')
+  } else {
+    setScreen('name')
+  }
+} else {
+  setScreen('exam')
+}
     } else {
       setScreen('login')
     }
@@ -44,7 +81,44 @@ useEffect(() => {
 const handleExamSelect = (selectedExam: string) => {
   setExam(selectedExam)
   localStorage.setItem('crackit_exam', selectedExam)
-  setScreen('app')
+  setScreen('name')
+}
+const completeToday = () => {
+  const todayStr = new Date().toISOString().split('T')[0]
+  if (streak.lastCompleted === todayStr) return
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  const yesterdayStr = yesterday.toISOString().split('T')[0]
+  const newCount = streak.lastCompleted === yesterdayStr ? streak.count + 1 : 1
+  const updated = { count: newCount, lastCompleted: todayStr }
+  setStreak(updated)
+  localStorage.setItem('crackit_streak', JSON.stringify(updated))
+}
+
+const getTimeRemaining = () => {
+  const now = new Date()
+  const midnight = new Date()
+  midnight.setHours(23, 59, 59, 999)
+  const diff = midnight.getTime() - now.getTime()
+  const hours = Math.floor(diff / (1000 * 60 * 60))
+  const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+  return `${hours}h ${mins}m`
+}
+
+const getGreeting = () => {
+  const hour = clock.getHours()
+  if (hour < 12) return 'Good morning'
+  if (hour < 17) return 'Good afternoon'
+  return 'Good evening'
+}
+const addTask = () => {
+  if (!taskForm.title || !taskForm.time) return
+  const todayStr = new Date().toISOString().split('T')[0]
+  const updated = { ...schedule, [todayStr]: [...(schedule[todayStr] || []), taskForm] }
+  setSchedule(updated)
+  localStorage.setItem('crackit_schedule', JSON.stringify(updated))
+  setTaskForm({ time: '', title: '', subject: '', duration: '' })
+  setShowAddTask(false)
 }
 
   const handleSignOut = async () => {
@@ -58,6 +132,7 @@ const handleExamSelect = (selectedExam: string) => {
 
   const navItems = [
     { id: 'dashboard', icon: '📊', label: 'Dashboard' },
+    { id: 'chapters', icon: '✅', label: 'Chapter Tracker' },
     { id: 'pyqs', icon: '📝', label: 'PYQs' },
     { id: 'dpp', icon: '🎯', label: 'Daily DPP' },
     { id: 'ncert', icon: '📚', label: 'NCERT PDFs' },
@@ -68,7 +143,7 @@ const handleExamSelect = (selectedExam: string) => {
 { id: 'donate', icon: '❤️', label: 'Donate' },  ]
 
   const sub3 = exam === 'NEET' ? 'Biology' : 'Mathematics'
-  const firstName = user?.displayName?.split(' ')[0] || 'Student'
+  const firstName = userName || user?.displayName?.split(' ')[0] || 'Student'
 
   if (screen === 'loading') return (
     <main style={{ minHeight: '100vh', background: '#0D0D0D', color: 'white', fontFamily: 'sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -91,7 +166,39 @@ const handleExamSelect = (selectedExam: string) => {
       </div>
     </main>
   )
-
+if (screen === 'name') return (
+  <main style={{ minHeight: '100vh', background: '#0D0D0D', color: 'white', fontFamily: 'sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ textAlign: 'center', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 24, padding: '48px 56px', width: 420 }}>
+      <div style={{ fontSize: 32, marginBottom: 8 }}>👋</div>
+      <h2 style={{ fontSize: 28, fontWeight: 800, marginBottom: 8 }}>What's your name?</h2>
+      <p style={{ color: '#888', marginBottom: 28 }}>We'll personalise your dashboard</p>
+      <input
+        placeholder="Enter your name"
+        value={nameInput}
+        onChange={e => setNameInput(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter' && nameInput.trim()) {
+            setUserName(nameInput.trim())
+            localStorage.setItem('crackit_name', nameInput.trim())
+            setScreen('app')
+          }
+        }}
+        style={{ width: '100%', padding: '14px 16px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'white', fontSize: 16, marginBottom: 16, boxSizing: 'border-box' }}
+      />
+      <button
+        onClick={() => {
+          if (nameInput.trim()) {
+            setUserName(nameInput.trim())
+            localStorage.setItem('crackit_name', nameInput.trim())
+            setScreen('app')
+          }
+        }}
+        style={{ width: '100%', padding: '14px', background: '#FF5A1F', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 16, cursor: 'pointer' }}>
+        Let's Go 🚀
+      </button>
+    </div>
+  </main>
+)
   if (screen === 'exam') return (
     <main style={{ minHeight: '100vh', background: '#0D0D0D', color: 'white', fontFamily: 'sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ textAlign: 'center' }}>
@@ -113,12 +220,44 @@ const handleExamSelect = (selectedExam: string) => {
   return (
     <main style={{ display: 'flex', minHeight: '100vh', background: '#1A1A1A', color: 'white', fontFamily: 'sans-serif' }}>
 
+      {showAddTask && (
+  <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ background: '#1A1A1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: 32, width: 420 }}>
+      <h3 style={{ fontWeight: 800, fontSize: 20, marginBottom: 20 }}>+ Add Task</h3>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <input placeholder="Time (e.g. 9:00 AM)" value={taskForm.time} onChange={e => setTaskForm(f => ({ ...f, time: e.target.value }))}
+          style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 14px', color: 'white', fontSize: 14 }} />
+        <input placeholder="Task title (e.g. Revision: Mechanics)" value={taskForm.title} onChange={e => setTaskForm(f => ({ ...f, title: e.target.value }))}
+          style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 14px', color: 'white', fontSize: 14 }} />
+        <input placeholder="Subject (e.g. Physics)" value={taskForm.subject} onChange={e => setTaskForm(f => ({ ...f, subject: e.target.value }))}
+          style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 14px', color: 'white', fontSize: 14 }} />
+        <input placeholder="Duration (e.g. 1 hour)" value={taskForm.duration} onChange={e => setTaskForm(f => ({ ...f, duration: e.target.value }))}
+          style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 14px', color: 'white', fontSize: 14 }} />
+      </div>
+      <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+        <button onClick={addTask}
+          style={{ flex: 1, padding: '12px', background: '#FF5A1F', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, cursor: 'pointer', fontSize: 15 }}>
+          Save Task
+        </button>
+        <button onClick={() => setShowAddTask(false)}
+          style={{ flex: 1, padding: '12px', background: 'rgba(255,255,255,0.07)', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, cursor: 'pointer', fontSize: 15 }}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+)}
       {/* Sidebar */}
-      <div style={{ width: 220, background: '#0D0D0D', borderRight: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', padding: '24px 0' }}>
-        <div style={{ padding: '0 20px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)', marginBottom: 12 }}>
+<div style={{ width: sidebarOpen ? 220 : 0, background: '#0D0D0D', borderRight: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', padding: sidebarOpen ? '24px 0' : 0, overflow: 'hidden', transition: 'width 0.3s ease' }}>        <div style={{ padding: '0 20px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)', marginBottom: 12 }}>
           <div style={{ fontSize: 20, fontWeight: 800 }}>⚡ CrackIt</div>
           <div style={{ fontSize: 11, marginTop: 4, padding: '2px 8px', borderRadius: 50, display: 'inline-block', background: exam === 'JEE' ? '#EEF1FF' : '#FFF0EA', color: exam === 'JEE' ? '#0A1FA8' : '#C43C0A', fontWeight: 600 }}>{exam}</div>
         </div>
+        <div style={{ padding: '0 20px 12px', marginBottom: 8, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+  <button onClick={() => setShowAddTask(true)}
+    style={{ width: '100%', padding: '8px', background: 'rgba(255,90,31,0.15)', border: '1px dashed rgba(255,90,31,0.4)', borderRadius: 10, color: '#FF5A1F', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>
+    + Add Today's Task
+  </button>
+</div>
         {navItems.map(item => (
           <div key={item.id} onClick={() => setPage(item.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 20px', cursor: 'pointer', background: page === item.id ? 'rgba(255,255,255,0.08)' : 'none', color: page === item.id ? 'white' : 'rgba(255,255,255,0.55)', fontSize: 14, marginBottom: 2 }}>
             <span>{item.icon}</span> {item.label}
@@ -133,46 +272,116 @@ const handleExamSelect = (selectedExam: string) => {
       </div>
 
       {/* Main Content */}
-      <div style={{ flex: 1, padding: 32, overflowY: 'auto' }}>
+      <div style={{ flex: 1, padding: 32, overflowY: 'auto', position: 'relative' }}>
+  <button onClick={() => setSidebarOpen(o => !o)}
+    style={{ position: 'fixed', top: 20, left: sidebarOpen ? 232 : 12, background: '#0D0D0D', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'white', width: 28, height: 28, cursor: 'pointer', fontSize: 14, transition: 'left 0.3s ease', zIndex: 100 }}>
+    {sidebarOpen ? '←' : '→'}
+  </button>
 
         {page === 'dashboard' && (
           <div>
-            <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 4 }}>Good morning, {firstName} 👋</h1>
-            <p style={{ color: '#888', marginBottom: 28 }}>Your exam is in <span style={{ color: '#FF5A1F' }}>127 days</span>. Let's make today count.</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
+  <div>
+    <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 4 }}>{getGreeting()}, {firstName} 👋</h1>
+    <p style={{ color: '#888' }}>Let's make today count.</p>
+  </div>
+  <div style={{ textAlign: 'right' }}>
+    <div style={{ fontSize: 36, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: 'white' }}>
+{clock.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Kolkata' })}    </div>
+    <div style={{ fontSize: 13, color: '#888' }}>
+{clock.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' })}    </div>
+  </div>
+</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 28 }}>
-              {[['🔥 Streak', '24 days'], ['✅ Qs Solved', '1,847'], ['📊 Accuracy', '73%'], ['⏱️ Study Time', '8.5h']].map(([label, val]) => (
-                <div key={label} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: 20 }}>
-                  <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>{label}</div>
-                  <div style={{ fontSize: 28, fontWeight: 800 }}>{val}</div>
-                </div>
-              ))}
+              <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: 20 }}>
+  <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>🔥 Streak</div>
+  <div style={{ fontSize: 28, fontWeight: 800 }}>{streak.count} days</div>
+</div>
+<div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: 20 }}>
+  <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>✅ Qs Solved</div>
+  <div style={{ fontSize: 28, fontWeight: 800 }}>1,847</div>
+</div>
+<div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: 20 }}>
+  <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>📊 Accuracy</div>
+  <div style={{ fontSize: 28, fontWeight: 800 }}>73%</div>
+</div>
+<div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: 20 }}>
+  <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>⏱️ Study Time</div>
+  <div style={{ fontSize: 28, fontWeight: 800 }}>8.5h</div>
+</div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
               <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: 22 }}>
                 <div style={{ fontWeight: 700, marginBottom: 16 }}>Subject Progress</div>
-                {[['Physics', 64, '#1A3CFF'], ['Chemistry', 81, '#00B16A'], [sub3, 52, '#FF5A1F']].map(([subj, pct, color]) => (
-                  <div key={subj as string} style={{ marginBottom: 14 }}>
+{[['Physics', '#1A3CFF'], ['Chemistry', '#00B16A'], [sub3, '#FF5A1F']].map(([subj, color]) => {
+  const chapters = exam === 'NEET'
+    ? { Physics: 23, Chemistry: 29, Biology: 38 }
+    : { Physics: 23, Chemistry: 29, Mathematics: 20 }
+  const totalChapters = chapters[subj as string] || 1
+  const TASKS = ['Lecture', 'NCERT', 'NCERT Exemplar', 'PYQs', 'DPP', 'Revision', 'Test']
+  const savedProgress = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('crackit_chapters') || '{}') : {}
+  const totalTasks = totalChapters * TASKS.length
+  const doneTasks = Object.keys(savedProgress).filter(k => k.startsWith(`${subj}__`) && savedProgress[k]).length
+  const pct = Math.round((doneTasks / totalTasks) * 100)
+  return (                  <div key={subj as string} style={{ marginBottom: 14 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}><span>{subj}</span><span style={{ color: '#888' }}>{pct}%</span></div>
                     <div style={{ height: 6, background: 'rgba(255,255,255,0.07)', borderRadius: 3 }}>
                       <div style={{ width: `${pct}%`, height: '100%', background: color as string, borderRadius: 3 }} />
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
               <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: 22 }}>
-                <div style={{ fontWeight: 700, marginBottom: 16 }}>Today's Schedule</div>
-                {[['7:00 AM', 'Revision: Mechanics', 'Physics · 1 hour', '#00B16A'], ['9:00 AM', 'DPP: Organic Chemistry', 'Chemistry · 30 qs', '#1A3CFF'], ['11:00 AM', `${sub3} PYQs`, `${sub3} · 2016–2024`, '#FF5A1F'], ['3:00 PM', 'Mock Test', 'Full syllabus · 3 hours', '#888']].map(([time, title, sub, color]) => (
-                  <div key={time as string} style={{ display: 'flex', gap: 12, paddingBottom: 12, marginBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div style={{ fontSize: 12, color: '#888', minWidth: 52 }}>{time}</div>
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: color as string, marginTop: 4, flexShrink: 0 }} />
-                    <div><div style={{ fontSize: 13, fontWeight: 500 }}>{title}</div><div style={{ fontSize: 11, color: '#888' }}>{sub}</div></div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+  <div style={{ fontWeight: 700 }}>
+    {scheduleDate === new Date().toISOString().split('T')[0] ? "Today's Schedule" : `Schedule — ${new Date(scheduleDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`}
+  </div>
+  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+    <button onClick={() => { const d = new Date(scheduleDate); d.setDate(d.getDate() - 1); setScheduleDate(d.toISOString().split('T')[0]) }}
+      style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'white', width: 24, height: 24, cursor: 'pointer', fontSize: 12 }}>←</button>
+    <button onClick={() => { const d = new Date(scheduleDate); d.setDate(d.getDate() + 1); if (d <= new Date()) setScheduleDate(d.toISOString().split('T')[0]) }}
+      style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'white', width: 24, height: 24, cursor: 'pointer', fontSize: 12 }}>→</button>
+  </div>
+</div>
+{(schedule[scheduleDate] || []).length === 0 ? (
+  <div style={{ color: '#888', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>
+    {scheduleDate === new Date().toISOString().split('T')[0] ? "No tasks yet — click \"+ Add Today's Task\" in the sidebar!" : 'No tasks were added for this day.'}
+  </div>
+) : (schedule[scheduleDate] || []).map((task, i) => (
+  <div key={i} style={{ display: 'flex', gap: 12, paddingBottom: 12, marginBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+    <div style={{ fontSize: 12, color: '#888', minWidth: 52 }}>{task.time}</div>
+    <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#FF5A1F', marginTop: 4, flexShrink: 0 }} />
+    <div>
+      <div style={{ fontSize: 13, fontWeight: 500 }}>{task.title}</div>
+      <div style={{ fontSize: 11, color: '#888' }}>{task.subject}{task.duration ? ` · ${task.duration}` : ''}</div>
+    </div>
+  </div>
+))}
+{scheduleDate === new Date().toISOString().split('T')[0] && (
+  <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+    {streak.lastCompleted === new Date().toISOString().split('T')[0] ? (
+      <div style={{ textAlign: 'center', color: '#00B16A', fontWeight: 700, fontSize: 14 }}>
+        ✅ You completed today! Streak: 🔥 {streak.count} days
+      </div>
+    ) : (
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ fontSize: 12, color: '#FF5A1F' }}>
+          ⏰ {getTimeRemaining()} remaining to keep your streak!
+        </div>
+        <button onClick={completeToday}
+          style={{ padding: '8px 16px', background: '#FF5A1F', border: 'none', borderRadius: 8, color: 'white', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>
+          Mark Today Complete ✓
+        </button>
+      </div>
+    )}
+  </div>
+)}
+    </div>
+  </div>
 
+              </div>
+            
+        )}
         {page === 'pyqs' && (
           <div>
             <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 4 }}>Previous Year Questions</h1>
@@ -284,6 +493,9 @@ const handleExamSelect = (selectedExam: string) => {
           </div>
         )}
 
+       {page === 'chapters' && (
+  <ChapterTracker exam={exam} />
+)} 
         {page === 'calendar' && (
   <CalendarPage exam={exam} />
 )}{page === 'donate' && (
