@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { auth, googleProvider } from './firebase'
 import { signInWithPopup, signOut } from 'firebase/auth'
+import CalendarPage from './CalendarPage'
 
 export default function Home() {
   const [screen, setScreen] = useState('loading')
@@ -11,17 +12,22 @@ export default function Home() {
   const [error, setError] = useState('')
   const [page, setPage] = useState('dashboard')
 
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
-      if (firebaseUser) {
-  setUser(firebaseUser)
-  const savedExam = localStorage.getItem('crackit_exam')
-  if (savedExam) {
-    setExam(savedExam)
-    setScreen('app')
-  } else {
-    setScreen('exam')
-  }
+useEffect(() => {
+  const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
+    if (firebaseUser) {
+      setUser(firebaseUser)
+      const savedExam = localStorage.getItem('crackit_exam')
+      if (savedExam) {
+        setExam(savedExam)
+        setScreen('app')
+      } else {
+        setScreen('exam')
+      }
+    } else {
+      setScreen('login')
+    }
+  })
+  return () => unsubscribe()
 }, [])
 
   const handleGoogleLogin = async () => {
@@ -58,8 +64,8 @@ const handleExamSelect = (selectedExam: string) => {
     { id: 'books', icon: '📖', label: 'Book PDFs' },
     { id: 'notes', icon: '🗒️', label: 'Short Notes' },
     { id: 'formulas', icon: '🔢', label: 'Formula Sheets' },
-    { id: 'donate', icon: '❤️', label: 'Donate' },
-  ]
+{ id: 'calendar', icon: '📅', label: 'Calendar' },
+{ id: 'donate', icon: '❤️', label: 'Donate' },  ]
 
   const sub3 = exam === 'NEET' ? 'Biology' : 'Mathematics'
   const firstName = user?.displayName?.split(' ')[0] || 'Student'
@@ -278,7 +284,9 @@ const handleExamSelect = (selectedExam: string) => {
           </div>
         )}
 
-        {page === 'donate' && (
+        {page === 'calendar' && (
+  <CalendarPage exam={exam} />
+)}{page === 'donate' && (
           <div style={{ maxWidth: 560, margin: '0 auto', textAlign: 'center', paddingTop: 48 }}>
             <div style={{ fontSize: 56, marginBottom: 16 }}>❤️</div>
             <h1 style={{ fontSize: 36, fontWeight: 800, marginBottom: 12 }}>Help us stay free</h1>
