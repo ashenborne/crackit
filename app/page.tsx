@@ -14,20 +14,15 @@ export default function Home() {
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
       if (firebaseUser) {
-        setUser(firebaseUser)
-        const savedExam = localStorage.getItem('crackit_exam')
-        if (savedExam) {
-          setExam(savedExam)
-          setScreen('app')
-        } else {
-          setScreen('exam')
-        }
-      } else {
-        setScreen('login')
-      }
-    })
-    return () => unsubscribe()
-  }, [])
+  setUser(firebaseUser)
+  const savedExam = localStorage.getItem('crackit_exam')
+  if (savedExam) {
+    setExam(savedExam)
+    setScreen('app')
+  } else {
+    setScreen('exam')
+  }
+}, [])
 
   const handleGoogleLogin = async () => {
     setError('')
@@ -40,11 +35,11 @@ export default function Home() {
     }
   }
 
-  const handleExamSelect = (selectedExam: string) => {
-    setExam(selectedExam)
-    localStorage.setItem('crackit_exam', selectedExam)
-    setScreen('app')
-  }
+const handleExamSelect = (selectedExam: string) => {
+  setExam(selectedExam)
+  localStorage.setItem('crackit_exam', selectedExam)
+  setScreen('app')
+}
 
   const handleSignOut = async () => {
     await signOut(auth)
