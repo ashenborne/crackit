@@ -1,43 +1,35 @@
 'use client'
 
 import { useState } from 'react'
+import { auth, googleProvider } from './firebase'
+import { signInWithPopup, signOut } from 'firebase/auth'
 
 export default function Home() {
   const [screen, setScreen] = useState('login')
   const [exam, setExam] = useState('')
-  const [page, setPage] = useState('dashboard')
+  const [user, setUser] = useState<any>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  const userName = 'Ravi Kumar'
-  const firstName = 'Ravi'
+  const handleGoogleLogin = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const result = await signInWithPopup(auth, googleProvider)
+      setUser(result.user)
+      setScreen('exam')
+    } catch (err: any) {
+      setError('Login failed. Please try again.')
+    }
+    setLoading(false)
+  }
 
-  if (screen === 'login') return (
-    <main style={{ minHeight: '100vh', background: '#0D0D0D', color: 'white', fontFamily: 'sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ textAlign: 'center', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 24, padding: '48px 56px', width: 420 }}>
-        <div style={{ fontSize: 32, fontWeight: 800, marginBottom: 8 }}>⚡ CrackIt</div>
-        <p style={{ color: '#888', marginBottom: 32 }}>Everything to crack JEE & NEET</p>
-        <button onClick={() => setScreen('exam')} style={{ width: '100%', padding: '14px 24px', background: 'white', color: 'black', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 500, cursor: 'pointer' }}>
-          🔵 Continue with Google
-        </button>
-      </div>
-    </main>
-  )
-
-  if (screen === 'exam') return (
-    <main style={{ minHeight: '100vh', background: '#0D0D0D', color: 'white', fontFamily: 'sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ textAlign: 'center' }}>
-        <h2 style={{ fontSize: 36, fontWeight: 800, marginBottom: 12 }}>Which exam?</h2>
-        <p style={{ color: '#888', marginBottom: 40 }}>We'll personalise everything for you</p>
-        <div style={{ display: 'flex', gap: 20 }}>
-          <button onClick={() => { setExam('JEE'); setScreen('app') }} style={{ padding: '32px 52px', fontSize: 24, fontWeight: 800, borderRadius: 16, border: 'none', background: '#1A3CFF', color: 'white', cursor: 'pointer' }}>
-            JEE<br/><span style={{ fontSize: 13, fontWeight: 400, opacity: 0.8 }}>Physics · Chemistry · Maths</span>
-          </button>
-          <button onClick={() => { setExam('NEET'); setScreen('app') }} style={{ padding: '32px 52px', fontSize: 24, fontWeight: 800, borderRadius: 16, border: 'none', background: '#FF5A1F', color: 'white', cursor: 'pointer' }}>
-            NEET<br/><span style={{ fontSize: 13, fontWeight: 400, opacity: 0.8 }}>Physics · Chemistry · Biology</span>
-          </button>
-        </div>
-      </div>
-    </main>
-  )
+  const handleSignOut = async () => {
+    await signOut(auth)
+    setUser(null)
+    setScreen('login')
+    setExam('')
+  }
 
   const navItems = [
     { id: 'dashboard', icon: '📊', label: 'Dashboard' },
@@ -50,12 +42,46 @@ export default function Home() {
     { id: 'donate', icon: '❤️', label: 'Donate' },
   ]
 
+  const [page, setPage] = useState('dashboard')
   const sub3 = exam === 'NEET' ? 'Biology' : 'Mathematics'
+  const firstName = user?.displayName?.split(' ')[0] || 'Student'
+
+  if (screen === 'login') return (
+    <main style={{ minHeight: '100vh', background: '#0D0D0D', color: 'white', fontFamily: 'sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ textAlign: 'center', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 24, padding: '48px 56px', width: 420 }}>
+        <div style={{ fontSize: 32, fontWeight: 800, marginBottom: 8 }}>⚡ CrackIt</div>
+        <p style={{ color: '#888', marginBottom: 32 }}>Everything to crack JEE & NEET</p>
+        {error && <p style={{ color: '#FF5A5A', marginBottom: 16, fontSize: 14 }}>{error}</p>}
+        <button
+          onClick={handleGoogleLogin}
+          disabled={loading}
+          style={{ width: '100%', padding: '14px 24px', background: 'white', color: 'black', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 500, cursor: loading ? 'wait' : 'pointer', opacity: loading ? 0.7 : 1 }}>
+          {loading ? 'Signing in...' : '🔵 Continue with Google'}
+        </button>
+      </div>
+    </main>
+  )
+
+  if (screen === 'exam') return (
+    <main style={{ minHeight: '100vh', background: '#0D0D0D', color: 'white', fontFamily: 'sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ marginBottom: 8, color: '#888' }}>Logged in as {user?.email}</div>
+        <h2 style={{ fontSize: 36, fontWeight: 800, marginBottom: 12 }}>Which exam?</h2>
+        <p style={{ color: '#888', marginBottom: 40 }}>We'll personalise everything for you</p>
+        <div style={{ display: 'flex', gap: 20 }}>
+          <button onClick={() => { setExam('JEE'); setScreen('app') }} style={{ padding: '32px 52px', fontSize: 24, fontWeight: 800, borderRadius: 16, border: 'none', background: '#1A3CFF', color: 'white', cursor: 'pointer' }}>
+            JEE<br /><span style={{ fontSize: 13, fontWeight: 400, opacity: 0.8 }}>Physics · Chemistry · Maths</span>
+          </button>
+          <button onClick={() => { setExam('NEET'); setScreen('app') }} style={{ padding: '32px 52px', fontSize: 24, fontWeight: 800, borderRadius: 16, border: 'none', background: '#FF5A1F', color: 'white', cursor: 'pointer' }}>
+            NEET<br /><span style={{ fontSize: 13, fontWeight: 400, opacity: 0.8 }}>Physics · Chemistry · Biology</span>
+          </button>
+        </div>
+      </div>
+    </main>
+  )
 
   return (
     <main style={{ display: 'flex', minHeight: '100vh', background: '#1A1A1A', color: 'white', fontFamily: 'sans-serif' }}>
-      
-      {/* Sidebar */}
       <div style={{ width: 220, background: '#0D0D0D', borderRight: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', padding: '24px 0' }}>
         <div style={{ padding: '0 20px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)', marginBottom: 12 }}>
           <div style={{ fontSize: 20, fontWeight: 800 }}>⚡ CrackIt</div>
@@ -67,20 +93,18 @@ export default function Home() {
           </div>
         ))}
         <div style={{ marginTop: 'auto', padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <div style={{ fontSize: 13, fontWeight: 500 }}>{userName}</div>
-          <div style={{ fontSize: 11, color: '#888' }}>ravi@gmail.com</div>
-          <div onClick={() => setScreen('login')} style={{ fontSize: 12, color: '#FF5A5A', marginTop: 8, cursor: 'pointer' }}>Sign out</div>
+          {user?.photoURL && <img src={user.photoURL} style={{ width: 32, height: 32, borderRadius: '50%', marginBottom: 8 }} />}
+          <div style={{ fontSize: 13, fontWeight: 500 }}>{user?.displayName}</div>
+          <div style={{ fontSize: 11, color: '#888' }}>{user?.email}</div>
+          <div onClick={handleSignOut} style={{ fontSize: 12, color: '#FF5A5A', marginTop: 8, cursor: 'pointer' }}>Sign out</div>
         </div>
       </div>
 
-      {/* Main Content */}
       <div style={{ flex: 1, padding: 32, overflowY: 'auto' }}>
-
         {page === 'dashboard' && (
           <div>
             <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 4 }}>Good morning, {firstName} 👋</h1>
             <p style={{ color: '#888', marginBottom: 28 }}>Your exam is in <span style={{ color: '#FF5A1F' }}>127 days</span>. Let's make today count.</p>
-            
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 28 }}>
               {[['🔥 Streak', '24 days'], ['✅ Qs Solved', '1,847'], ['📊 Accuracy', '73%'], ['⏱️ Study Time', '8.5h']].map(([label, val]) => (
                 <div key={label} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: 20 }}>
@@ -89,7 +113,6 @@ export default function Home() {
                 </div>
               ))}
             </div>
-
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
               <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: 22 }}>
                 <div style={{ fontWeight: 700, marginBottom: 16 }}>Subject Progress</div>
@@ -97,7 +120,7 @@ export default function Home() {
                   <div key={subj as string} style={{ marginBottom: 14 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}><span>{subj}</span><span style={{ color: '#888' }}>{pct}%</span></div>
                     <div style={{ height: 6, background: 'rgba(255,255,255,0.07)', borderRadius: 3 }}>
-                      <div style={{ width: `${pct}%`, height: '100%', background: color as string, borderRadius: 3 }}/>
+                      <div style={{ width: `${pct}%`, height: '100%', background: color as string, borderRadius: 3 }} />
                     </div>
                   </div>
                 ))}
@@ -107,7 +130,7 @@ export default function Home() {
                 {[['7:00 AM', 'Revision: Mechanics', 'Physics · 1 hour', '#00B16A'], ['9:00 AM', 'DPP: Organic Chemistry', 'Chemistry · 30 qs', '#1A3CFF'], ['11:00 AM', `${sub3} PYQs`, `${sub3} · 2016–2024`, '#FF5A1F'], ['3:00 PM', 'Mock Test', 'Full syllabus · 3 hours', '#888']].map(([time, title, sub, color]) => (
                   <div key={time as string} style={{ display: 'flex', gap: 12, paddingBottom: 12, marginBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                     <div style={{ fontSize: 12, color: '#888', minWidth: 52 }}>{time}</div>
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: color as string, marginTop: 4, flexShrink: 0 }}/>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: color as string, marginTop: 4, flexShrink: 0 }} />
                     <div><div style={{ fontSize: 13, fontWeight: 500 }}>{title}</div><div style={{ fontSize: 11, color: '#888' }}>{sub}</div></div>
                   </div>
                 ))}
@@ -142,7 +165,7 @@ export default function Home() {
             <p style={{ color: '#888', marginBottom: 24 }}>30 hand-picked questions every day</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {[['10', 'Thermodynamics', 'Today · Chemistry', 'New', '#FF5A1F'], ['9', 'Optics', 'Yesterday · Physics', 'Done ✓', '#00B16A'], ['8', exam === 'NEET' ? 'Cell Biology' : 'Calculus', `2 days ago · ${sub3}`, 'Done ✓', '#00B16A'], ['7', 'Electrochemistry', '3 days ago · Chemistry', 'Done ✓', '#00B16A'], ['11', 'Modern Physics', 'Unlocks tomorrow', '🔒 Locked', '#888']].map(([num, title, sub, status, color]) => (
-                <div key={num as string} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer' }}>
+                <div key={num as string} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
                   <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 16, color: color as string }}>{num}</div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 600 }}>DPP #{num} — {title}</div>
@@ -179,7 +202,7 @@ export default function Home() {
             <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 4 }}>Reference Book PDFs</h1>
             <p style={{ color: '#888', marginBottom: 24 }}>Toppers' recommended books</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-              {[['⚡', 'HC Verma — Concepts of Physics', 'Physics'], ['🧪', 'MS Chauhan — Organic Chemistry', 'Chemistry'], ['🔬', 'VK Jaiswal — Inorganic Chemistry', 'Chemistry'], ['📐', exam === 'NEET' ? 'AK Jain — Human Physiology' : 'SL Loney — Trigonometry', sub3], ['🔭', 'DC Pandey — Optics', 'Physics'], ['📊', exam === 'NEET' ? 'Trueman\'s Biology' : 'Arihant — Algebra', exam === 'NEET' ? 'Biology' : sub3]].map(([icon, title, subj]) => (
+              {[['⚡', 'HC Verma — Concepts of Physics', 'Physics'], ['🧪', 'MS Chauhan — Organic Chemistry', 'Chemistry'], ['🔬', 'VK Jaiswal — Inorganic Chemistry', 'Chemistry'], ['📐', exam === 'NEET' ? 'AK Jain — Human Physiology' : 'SL Loney — Trigonometry', sub3], ['🔭', 'DC Pandey — Optics', 'Physics'], ['📊', exam === 'NEET' ? "Trueman's Biology" : 'Arihant — Algebra', exam === 'NEET' ? 'Biology' : sub3]].map(([icon, title, subj]) => (
                 <div key={title as string} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: 20, cursor: 'pointer' }}>
                   <div style={{ fontSize: 28, marginBottom: 12 }}>{icon}</div>
                   <div style={{ fontWeight: 600, marginBottom: 4 }}>{title}</div>
@@ -241,7 +264,6 @@ export default function Home() {
             <p style={{ fontSize: 13, color: '#888', marginTop: 16 }}>UPI · Credit/Debit Card · Net Banking</p>
           </div>
         )}
-
       </div>
     </main>
   )
