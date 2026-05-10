@@ -317,7 +317,7 @@ if (screen === 'name') return (
   const chapters = exam === 'NEET'
     ? { Physics: 23, Chemistry: 29, Biology: 38 }
     : { Physics: 23, Chemistry: 29, Mathematics: 20 }
-  const totalChapters = chapters[subj as string] || 1
+  const totalChapters = (chapters as any)[subj as string] || 1
   const TASKS = ['Lecture', 'NCERT', 'NCERT Exemplar', 'PYQs', 'DPP', 'Revision', 'Test']
   const savedProgress = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('crackit_chapters') || '{}') : {}
   const totalTasks = totalChapters * TASKS.length

@@ -60,7 +60,7 @@ export default function ChapterTracker({ exam }: { exam: string }) {
   const subjects = Object.keys(chapters)
 
   const [selectedSubject, setSelectedSubject] = useState(subjects[0])
-  const [progress, setProgress] = useState<Record<string, Record<string, boolean>>>(() => {
+  const [progress, setProgress] = useState<Record<string, boolean>>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('crackit_chapters')
       return saved ? JSON.parse(saved) : {}
@@ -71,8 +71,8 @@ export default function ChapterTracker({ exam }: { exam: string }) {
 
   const toggleTask = (chapter: string, task: string) => {
     const key = `${selectedSubject}__${chapter}__${task}`
-    const updated = { ...progress, [key]: !progress[key] }
-    setProgress(updated)
+    const updated = { ...progress, [key]: !progress[key] } as Record<string, boolean>
+setProgress(updated)
     localStorage.setItem('crackit_chapters', JSON.stringify(updated))
   }
 
