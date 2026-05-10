@@ -1,18 +1,35 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { auth, googleProvider } from './firebase'
 import { signInWithPopup, signOut } from 'firebase/auth'
 
 export default function Home() {
-  const [screen, setScreen] = useState('login')
+  const [screen, setScreen] = useState('loading')
   const [exam, setExam] = useState('')
   const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [page, setPage] = useState('dashboard')
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
+      if (firebaseUser) {
+        setUser(firebaseUser)
+        const savedExam = localStorage.getItem('crackit_exam')
+        if (savedExam) {
+          setExam(savedExam)
+          setScreen('app')
+        } else {
+          setScreen('exam')
+        }
+      } else {
+        setScreen('login')
+      }
+    })
+    return () => unsubscribe()
+  }, [])
 
   const handleGoogleLogin = async () => {
-    setLoading(true)
     setError('')
     try {
       const result = await signInWithPopup(auth, googleProvider)
@@ -21,14 +38,21 @@ export default function Home() {
     } catch (err: any) {
       setError('Login failed. Please try again.')
     }
-    setLoading(false)
+  }
+
+  const handleExamSelect = (selectedExam: string) => {
+    setExam(selectedExam)
+    localStorage.setItem('crackit_exam', selectedExam)
+    setScreen('app')
   }
 
   const handleSignOut = async () => {
     await signOut(auth)
     setUser(null)
-    setScreen('login')
     setExam('')
+    setPage('dashboard')
+    localStorage.removeItem('crackit_exam')
+    setScreen('login')
   }
 
   const navItems = [
@@ -42,9 +66,17 @@ export default function Home() {
     { id: 'donate', icon: '❤️', label: 'Donate' },
   ]
 
-  const [page, setPage] = useState('dashboard')
   const sub3 = exam === 'NEET' ? 'Biology' : 'Mathematics'
   const firstName = user?.displayName?.split(' ')[0] || 'Student'
+
+  if (screen === 'loading') return (
+    <main style={{ minHeight: '100vh', background: '#0D0D0D', color: 'white', fontFamily: 'sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 32, fontWeight: 800, marginBottom: 16 }}>⚡ CrackIt</div>
+        <div style={{ fontSize: 16, color: '#888' }}>Loading...</div>
+      </div>
+    </main>
+  )
 
   if (screen === 'login') return (
     <main style={{ minHeight: '100vh', background: '#0D0D0D', color: 'white', fontFamily: 'sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -52,11 +84,8 @@ export default function Home() {
         <div style={{ fontSize: 32, fontWeight: 800, marginBottom: 8 }}>⚡ CrackIt</div>
         <p style={{ color: '#888', marginBottom: 32 }}>Everything to crack JEE & NEET</p>
         {error && <p style={{ color: '#FF5A5A', marginBottom: 16, fontSize: 14 }}>{error}</p>}
-        <button
-          onClick={handleGoogleLogin}
-          disabled={loading}
-          style={{ width: '100%', padding: '14px 24px', background: 'white', color: 'black', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 500, cursor: loading ? 'wait' : 'pointer', opacity: loading ? 0.7 : 1 }}>
-          {loading ? 'Signing in...' : '🔵 Continue with Google'}
+        <button onClick={handleGoogleLogin} style={{ width: '100%', padding: '14px 24px', background: 'white', color: 'black', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 500, cursor: 'pointer' }}>
+          🔵 Continue with Google
         </button>
       </div>
     </main>
@@ -69,10 +98,10 @@ export default function Home() {
         <h2 style={{ fontSize: 36, fontWeight: 800, marginBottom: 12 }}>Which exam?</h2>
         <p style={{ color: '#888', marginBottom: 40 }}>We'll personalise everything for you</p>
         <div style={{ display: 'flex', gap: 20 }}>
-          <button onClick={() => { setExam('JEE'); setScreen('app') }} style={{ padding: '32px 52px', fontSize: 24, fontWeight: 800, borderRadius: 16, border: 'none', background: '#1A3CFF', color: 'white', cursor: 'pointer' }}>
+          <button onClick={() => handleExamSelect('JEE')} style={{ padding: '32px 52px', fontSize: 24, fontWeight: 800, borderRadius: 16, border: 'none', background: '#1A3CFF', color: 'white', cursor: 'pointer' }}>
             JEE<br /><span style={{ fontSize: 13, fontWeight: 400, opacity: 0.8 }}>Physics · Chemistry · Maths</span>
           </button>
-          <button onClick={() => { setExam('NEET'); setScreen('app') }} style={{ padding: '32px 52px', fontSize: 24, fontWeight: 800, borderRadius: 16, border: 'none', background: '#FF5A1F', color: 'white', cursor: 'pointer' }}>
+          <button onClick={() => handleExamSelect('NEET')} style={{ padding: '32px 52px', fontSize: 24, fontWeight: 800, borderRadius: 16, border: 'none', background: '#FF5A1F', color: 'white', cursor: 'pointer' }}>
             NEET<br /><span style={{ fontSize: 13, fontWeight: 400, opacity: 0.8 }}>Physics · Chemistry · Biology</span>
           </button>
         </div>
@@ -82,6 +111,8 @@ export default function Home() {
 
   return (
     <main style={{ display: 'flex', minHeight: '100vh', background: '#1A1A1A', color: 'white', fontFamily: 'sans-serif' }}>
+
+      {/* Sidebar */}
       <div style={{ width: 220, background: '#0D0D0D', borderRight: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', padding: '24px 0' }}>
         <div style={{ padding: '0 20px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)', marginBottom: 12 }}>
           <div style={{ fontSize: 20, fontWeight: 800 }}>⚡ CrackIt</div>
@@ -93,14 +124,16 @@ export default function Home() {
           </div>
         ))}
         <div style={{ marginTop: 'auto', padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          {user?.photoURL && <img src={user.photoURL} style={{ width: 32, height: 32, borderRadius: '50%', marginBottom: 8 }} />}
+          {user?.photoURL && <img src={user.photoURL} style={{ width: 32, height: 32, borderRadius: '50%', marginBottom: 8 }} alt="profile" />}
           <div style={{ fontSize: 13, fontWeight: 500 }}>{user?.displayName}</div>
           <div style={{ fontSize: 11, color: '#888' }}>{user?.email}</div>
           <div onClick={handleSignOut} style={{ fontSize: 12, color: '#FF5A5A', marginTop: 8, cursor: 'pointer' }}>Sign out</div>
         </div>
       </div>
 
+      {/* Main Content */}
       <div style={{ flex: 1, padding: 32, overflowY: 'auto' }}>
+
         {page === 'dashboard' && (
           <div>
             <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 4 }}>Good morning, {firstName} 👋</h1>
@@ -264,6 +297,7 @@ export default function Home() {
             <p style={{ fontSize: 13, color: '#888', marginTop: 16 }}>UPI · Credit/Debit Card · Net Banking</p>
           </div>
         )}
+
       </div>
     </main>
   )
